@@ -4,32 +4,28 @@ dotenv.config();
 import app from './app.js';
 import connectDB from './config/db.js';
 import { connectToRedis } from './services/redis.js';
-import { PORT } from './config/utils.js';
 
 console.log('🚀 Starting server...');
 
-let server: any;
+const port = process.env.PORT || 3000;
 
-async function startServer() {
+// Start server FIRST — Render needs port to be open immediately
+const server = app.listen(port, () => {
+  console.log(`✅ Server running on port ${port}`);
+  console.log(`🔗 Backend URL: http://localhost:${port}`);
+});
+
+// Connect to databases AFTER server is listening
+async function connectDatabases() {
   try {
-    console.log('📡 Connecting to databases...');
     await connectToRedis();
     await connectDB();
-
-    const port = PORT || 3000;
-
-    server = app.listen(port, () => {
-      console.log(`✅ Server running on port ${port}`);
-      console.log(`🔗 Backend URL: http://localhost:${port}`);
-    });
-
-    return server;
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    console.error('❌ Database connection error:', error);
+    // Don't exit — let server keep running
   }
 }
 
-startServer();
+connectDatabases();
 
 export default server;
