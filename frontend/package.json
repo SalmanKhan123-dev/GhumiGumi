@@ -40,7 +40,7 @@
   },
   "scripts": {
     "test": "jest --watchAll  --detectOpenHandles --verbose --coverage ",
-    "build": "tsc",
+    "build": "vite build",
     "start": "npx tsx server.ts",
     "dev": "nodemon --exec \"npx tsx\" server.ts",
     "check": "prettier --check .",
