@@ -2,15 +2,11 @@
 
 ## What Was Added
 
-### 1. 🤖 GhumiBot (AI Chatbot)
-- **Backend:** `backend/routes/chatbot.ts` + `backend/controllers/chatbot-controller.ts`
-- **Frontend:** `frontend/src/components/ghumibot.tsx` (floating chat bubble on every page)
-- **API:** Uses Anthropic Claude (`claude-haiku-4-5-20251001`) — fast and affordable
 
-### 2. 🔐 Sign In / Sign Up (Email + Google OAuth)
+### 1. 🔐 Sign In / Sign Up (Email + Google OAuth)
 - Already built. Just needs `.env` configured correctly.
 
-### 3. 📝 Post a Vlog/Blog
+### 2. 📝 Post a Vlog/Blog
 - Already built. Users must be signed in. Use the **"Add Blog"** button.
 
 ---
@@ -71,11 +67,6 @@ Paste the output as `JWT_SECRET=<output>`
 
 ---
 
-#### 🤖 Anthropic API Key (for GhumiBot chatbot)
-1. Go to [https://console.anthropic.com](https://console.anthropic.com)
-2. Sign up / Log in
-3. Go to **API Keys → Create Key**
-4. Copy the key → paste as `ANTHROPIC_API_KEY=sk-ant-...`
 
 > ⚠️ This key is **backend-only**. It never goes in the frontend `.env`.
 
@@ -127,11 +118,6 @@ npm run dev
 4. Click **"Post Blog"**
 - Requires authentication (JWT cookie)
 
-### GhumiBot Chatbot
-- A floating 🌍 button appears on **every page** (bottom-right corner)
-- Click it to open the chat
-- Ask about travel destinations, itineraries, packing, etc.
-- Powered by Claude AI (Anthropic)
 
 ---
 
@@ -139,9 +125,6 @@ npm run dev
 
 | File | Change |
 |------|--------|
-| `backend/routes/chatbot.ts` | ✅ NEW — chatbot API route |
-| `backend/controllers/chatbot-controller.ts` | ✅ NEW — calls Anthropic API |
-| `backend/app.ts` | ✅ UPDATED — registered chatbot route |
 | `backend/.env.example` | ✅ NEW — all env variables with instructions |
 | `frontend/src/components/ghumibot.tsx` | ✅ NEW — floating chat widget |
 | `frontend/src/App.tsx` | ✅ UPDATED — GhumiBot added to all pages |
