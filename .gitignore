@@ -6,4 +6,6 @@ backend/node_modules
 coverage/
 .idea/
 backend/dist
-package-lock.json
+# Backend secrets and dependencies
+scripts/backend/.env
+scripts/backend/node_modules/
