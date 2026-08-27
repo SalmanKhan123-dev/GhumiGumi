@@ -25,7 +25,18 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
   try {
     const { id } = jwt.verify(token, JWT_SECRET as string) as JwtPayload;
-    req.user = await User.findById(id);
+    const foundUser = await User.findById(id);
+
+    if (!foundUser) {
+      return next(
+        new ApiError({
+          status: HTTP_STATUS.FORBIDDEN,
+          message: RESPONSE_MESSAGES.USERS.RE_LOGIN,
+        })
+      );
+    }
+
+    req.user = foundUser;
     next();
   } catch (error: any) {
     console.log('Token verification error:', error);
