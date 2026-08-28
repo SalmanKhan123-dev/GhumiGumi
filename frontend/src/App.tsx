@@ -28,7 +28,7 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <div className="flex min-h-screen flex-col">
+     <div className="flex min-h-screen flex-col bg-light dark:bg-dark">
         <Routes>
           <Route path="/">
             <Route index element={<HomePage />} />

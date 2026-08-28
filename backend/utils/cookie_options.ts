@@ -10,9 +10,12 @@ const maxAge =
   typeof ACCESS_COOKIE_MAXAGE === 'string' ? parseInt(ACCESS_COOKIE_MAXAGE, 10) : defaultMaxAge;
 
 const validMaxAge = isNaN(maxAge) ? defaultMaxAge : maxAge;
+
+const isDev = NODE_ENV?.toLowerCase() === 'development';
+
 export const cookieOptions: CookieObject = {
   httpOnly: true,
-  sameSite: NODE_ENV === 'Development' ? 'lax' : 'none',
-  secure: NODE_ENV === 'Development' ? false : true,
+  sameSite: isDev ? 'lax' : 'none',
+  secure: isDev ? false : true,
   maxAge: validMaxAge,
 };
