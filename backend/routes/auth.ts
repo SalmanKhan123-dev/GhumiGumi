@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { authMiddleware } from '../middlewares/auth-middleware.js';
 import passport from '../config/passport.js';
 import jwt from 'jsonwebtoken';
 
@@ -9,24 +10,21 @@ import {
   isLoggedIn,
 } from '../controllers/auth-controller.js';
 
-import { authMiddleware } from '../middlewares/auth-middleware.js';
-
 const router = Router();
 
-/* =========================================================
-   EMAIL / PASSWORD AUTHENTICATION
-========================================================= */
+// ================================
+// EMAIL / PASSWORD
+// ================================
 
 router.post('/email-password/signup', signUpWithEmail);
 
 router.post('/email-password/signin', signInWithEmailOrUsername);
 
 
-/* =========================================================
-   GOOGLE OAUTH
-========================================================= */
+// ================================
+// GOOGLE LOGIN
+// ================================
 
-// Step 1: Send user to Google
 router.get(
   '/google',
   passport.authenticate('google', {
@@ -34,79 +32,42 @@ router.get(
   })
 );
 
-
-// Step 2: Google redirects here
 router.get(
   '/google/callback',
-
   passport.authenticate('google', {
     failureRedirect: '/',
     session: false,
   }),
-
   (req: Request, res: Response) => {
-    try {
-      if (!req.user) {
-        return res.redirect(
-          `${process.env.FRONTEND_URL}/signin?error=google-auth-failed`
-        );
-      }
+    const token = jwt.sign(
+      { id: req.user._id },
+      process.env.JWT_SECRET!,
+      { expiresIn: '1h' }
+    );
 
-      if (!process.env.JWT_SECRET) {
-        console.error('JWT_SECRET is not defined');
+    res.cookie('access_token', token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      maxAge: 60 * 60 * 1000,
+    });
 
-        return res.redirect(
-          `${process.env.FRONTEND_URL}/signin?error=server-config`
-        );
-      }
-
-      // Create JWT
-      const token = jwt.sign(
-        {
-          id: req.user._id,
-        },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: '1h',
-        }
-      );
-
-      // Store JWT in HTTP-only cookie
-      res.cookie('access_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 60 * 60 * 1000,
-      });
-
-      // Redirect to frontend
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/signup?google-callback=true`
-      );
-
-    } catch (error) {
-      console.error('Google callback error:', error);
-
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/signin?error=google-auth-failed`
-      );
-    }
+    res.redirect(
+      `${process.env.FRONTEND_URL}/signup?google-callback=true`
+    );
   }
 );
 
 
-/* =========================================================
-   CHECK AUTHENTICATION
-========================================================= */
+// ================================
+// CHECK LOGIN
+// ================================
 
 router.get('/check', authMiddleware, (req, res) => {
   const token = req.cookies.access_token;
 
   res.json({
-    success: true,
-
     token,
-
     user: {
       _id: req.user._id,
       role: req.user.role,
@@ -115,9 +76,9 @@ router.get('/check', authMiddleware, (req, res) => {
 });
 
 
-/* =========================================================
-   SIGN OUT
-========================================================= */
+// ================================
+// SIGN OUT
+// ================================
 
 router.post(
   '/signout',
@@ -126,9 +87,9 @@ router.post(
 );
 
 
-/* =========================================================
-   CHECK USER STATUS
-========================================================= */
+// ================================
+// CHECK USER STATUS
+// ================================
 
 router.get(
   '/check/:_id',
