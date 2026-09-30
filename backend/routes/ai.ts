@@ -1,5 +1,7 @@
 import { Router } from 'express';
+
 import {
+  travelAgentHandler,
   tripPlannerHandler,
   blogGeneratorHandler,
   destinationRecommenderHandler,
@@ -7,13 +9,32 @@ import {
 
 const router = Router();
 
-// 1. Trip Planner
-router.post('/trip-planner', tripPlannerHandler);
+// ─────────────────────────────────────────────
+// AI TRAVEL AGENT
+// ─────────────────────────────────────────────
 
-// 2. Blog Content Generator
-router.post('/blog-generator', blogGeneratorHandler);
+router.post(
+  '/travel-agent',
+  travelAgentHandler,
+);
 
-// 3. Destination Recommender
-router.post('/destination-recommender', destinationRecommenderHandler);
+// ─────────────────────────────────────────────
+// EXISTING AI FEATURES
+// ─────────────────────────────────────────────
+
+router.post(
+  '/trip-planner',
+  tripPlannerHandler,
+);
+
+router.post(
+  '/blog-generator',
+  blogGeneratorHandler,
+);
+
+router.post(
+  '/destination-recommender',
+  destinationRecommenderHandler,
+);
 
 export default router;

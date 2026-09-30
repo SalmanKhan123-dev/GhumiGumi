@@ -1,63 +1,508 @@
 import { Request, Response } from 'express';
 
-/* =========================================================
-   GROQ AI HELPER
-========================================================= */
+import {
+  getTravelIntelligence,
+} from '../services/travel-tools.js';
 
-const callGroq = async (prompt: string): Promise<string> => {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL =
+  'https://api.groq.com/openai/v1/chat/completions';
 
-  if (!GROQ_API_KEY) {
-    throw new Error('GROQ_API_KEY not configured');
+const GROQ_MODEL =
+  'openai/gpt-oss-20b';
+
+type GroqMessage = {
+  role: string;
+  content?: string | null;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  name?: string;
+};
+
+const travelTools = [
+  {
+    type: 'function',
+    function: {
+      name: 'get_travel_intelligence',
+      description:
+        'Gather real travel information for a destination, including geographic location, current and forecast weather, real attractions, and an estimated trip budget.',
+      parameters: {
+        type: 'object',
+        properties: {
+          destination: {
+            type: 'string',
+            description: 'Travel destination',
+          },
+          days: {
+            type: 'number',
+            description: 'Number of travel days',
+          },
+          travelers: {
+            type: 'number',
+            description: 'Number of travelers',
+          },
+          budgetTier: {
+            type: 'string',
+            enum: ['budget', 'moderate', 'luxury'],
+            description: 'Travel budget style',
+          },
+        },
+        required: [
+          'destination',
+          'days',
+          'travelers',
+          'budgetTier',
+        ],
+      },
+    },
+  },
+];
+
+const calculateBudget = ({
+  days,
+  travelers,
+  budgetTier,
+}: {
+  days: number;
+  travelers: number;
+  budgetTier: 'budget' | 'moderate' | 'luxury';
+}) => {
+  const multiplier = {
+    budget: 1,
+    moderate: 1.7,
+    luxury: 3,
+  }[budgetTier];
+
+  const accommodation =
+    Math.round(1200 * multiplier * days * travelers);
+
+  const food =
+    Math.round(700 * multiplier * days * travelers);
+
+  const localTransport =
+    Math.round(350 * multiplier * days * travelers);
+
+  const activities =
+    Math.round(500 * multiplier * days * travelers);
+
+  const subtotal =
+    accommodation +
+    food +
+    localTransport +
+    activities;
+
+  const emergencyBuffer =
+    Math.round(subtotal * 0.1);
+
+  const total =
+    subtotal + emergencyBuffer;
+
+  return {
+    currency: 'INR',
+    accommodation,
+    food,
+    localTransport,
+    activities,
+    emergencyBuffer,
+    total,
+    perPerson:
+      Math.round(total / travelers),
+  };
+};
+
+const callGroq = async (
+  messages: GroqMessage[],
+  includeTools = false,
+) => {
+  const apiKey =
+    process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      'GROQ_API_KEY is not configured',
+    );
+  }
+
+  const body: Record<string, unknown> = {
+    model: GROQ_MODEL,
+    messages,
+    temperature: 0.3,
+    max_tokens: 1800,
+  };
+
+  if (includeTools) {
+    body.tools = travelTools;
+    body.tool_choice = 'required';
   }
 
   const response = await fetch(
-    'https://api.groq.com/openai/v1/chat/completions',
+    GROQ_API_URL,
     {
       method: 'POST',
+
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        'Content-Type':
+          'application/json',
+
+        Authorization:
+          `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: 'openai/gpt-oss-20b',
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 3500,
-        temperature: 0.75,
-      }),
+
+      body: JSON.stringify(body),
     },
   );
 
   if (!response.ok) {
-    const err = await response.json();
+    const errorText =
+      await response.text();
 
-    console.error('Groq error:', err);
+    console.error(
+      'Groq API error:',
+      errorText,
+    );
 
     throw new Error(
-      err?.error?.message || 'Groq API request failed',
+      'Groq API request failed',
     );
   }
 
-  const data = (await response.json()) as {
-    choices?: {
-      message?: {
-        content?: string;
-      };
-    }[];
-  };
-
-  return data.choices?.[0]?.message?.content || '';
+  return response.json();
 };
 
+const executeTravelIntelligence = async (
+  argumentsString: string,
+) => {
+  const args =
+    JSON.parse(argumentsString);
 
-/* =========================================================
-   1. AI TRIP PLANNER
-========================================================= */
+  const destination =
+    String(args.destination).trim();
+
+  const days =
+    Number(args.days);
+
+  const travelers =
+    Number(args.travelers);
+
+  const budgetTier =
+    args.budgetTier as
+      | 'budget'
+      | 'moderate'
+      | 'luxury';
+
+  const travelData =
+    await getTravelIntelligence(
+      destination,
+      days,
+    );
+
+  const budget =
+    calculateBudget({
+      days,
+      travelers,
+      budgetTier,
+    });
+
+  return {
+    location:
+      travelData.location,
+
+    weather:
+      travelData.weather,
+
+    places:
+      travelData.places,
+
+    budget,
+  };
+};
+
+const runTravelAgent = async ({
+  destination,
+  days,
+  budget,
+  travelers,
+}: {
+  destination: string;
+  days: number;
+  budget: string;
+  travelers: number;
+}) => {
+  const agentSteps: string[] = [
+    'Understanding your trip requirements',
+  ];
+
+  const messages: GroqMessage[] = [
+    {
+      role: 'system',
+
+      content: `
+You are GhumiGumi AI Travel Agent.
+
+You must use the get_travel_intelligence tool to gather real travel data before creating the itinerary.
+
+The tool provides:
+- destination coordinates
+- current and forecast weather
+- real nearby attractions
+- estimated budget
+
+Do not invent live travel data.
+
+After receiving the tool result, create a practical itinerary.
+
+Consider weather when scheduling outdoor activities.
+
+Clearly label costs as estimates.
+
+Do not claim hotel or flight availability.
+
+Create:
+1. Trip Overview
+2. Destination Information
+3. Weather Overview
+4. Estimated Budget
+5. Day-by-Day Itinerary
+6. Real Attractions
+7. Food Recommendations
+8. Travel Tips
+9. Weather-Based Suggestions
+10. Final Recommendation
+`,
+    },
+
+    {
+      role: 'user',
+
+      content: `
+Plan a ${days}-day trip to ${destination}
+for ${travelers} traveler(s).
+
+Budget style: ${budget}
+
+Use the travel intelligence tool first.
+`,
+    },
+  ];
+
+  const firstResponse =
+    await callGroq(
+      messages,
+      true,
+    );
+
+  const firstMessage =
+    firstResponse.choices?.[0]?.message;
+
+  const toolCalls =
+    firstMessage?.tool_calls || [];
+
+  let travelData: any = null;
+
+  if (toolCalls.length > 0) {
+    const toolCall =
+      toolCalls[0];
+
+    agentSteps.push(
+      'Gathering live travel information',
+    );
+
+    travelData =
+      await executeTravelIntelligence(
+        toolCall.function.arguments,
+      );
+
+    agentSteps.push(
+      'Checking destination weather',
+    );
+
+    agentSteps.push(
+      'Finding real attractions',
+    );
+
+    agentSteps.push(
+      'Calculating estimated budget',
+    );
+  } else {
+    agentSteps.push(
+      'Gathering live travel information',
+    );
+
+    travelData =
+      await executeTravelIntelligence(
+        JSON.stringify({
+          destination,
+          days,
+          travelers,
+          budgetTier: budget,
+        }),
+      );
+  }
+
+  const finalMessages: GroqMessage[] = [
+    {
+      role: 'system',
+
+      content: `
+You are GhumiGumi AI Travel Agent.
+
+Create the final travel itinerary using the live travel data provided below.
+
+IMPORTANT:
+- Do not call tools.
+- Do not invent weather.
+- Do not invent coordinates.
+- Use the real attractions from the provided data.
+- Treat all prices as estimates.
+- Do not claim hotel or flight availability.
+- Consider weather when arranging outdoor activities.
+- Keep each day realistic.
+- Group nearby attractions when possible.
+
+Format the response clearly with:
+
+Trip Overview
+
+Destination Information
+
+Weather Overview
+
+Estimated Budget
+
+Day-by-Day Itinerary
+
+Real Attractions
+
+Food Recommendations
+
+Travel Tips
+
+Weather-Based Suggestions
+
+Final Recommendation
+`,
+    },
+
+    {
+      role: 'user',
+
+      content: `
+Create the final itinerary.
+
+Destination: ${destination}
+Days: ${days}
+Travelers: ${travelers}
+Budget Style: ${budget}
+
+LIVE TRAVEL DATA:
+${JSON.stringify(
+  travelData,
+  null,
+  2,
+)}
+`,
+    },
+  ];
+
+  agentSteps.push(
+    'Generating personalized itinerary',
+  );
+
+  const finalResponse =
+    await callGroq(
+      finalMessages,
+      false,
+    );
+
+  const finalMessage =
+    finalResponse.choices?.[0]?.message;
+
+  return {
+    itinerary:
+      finalMessage?.content ||
+      'Unable to generate itinerary.',
+
+    agentSteps,
+    travelData,
+  };
+};
+
+export const travelAgentHandler = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const {
+      destination,
+      days,
+      budget = 'moderate',
+      travelers = 2,
+    } = req.body;
+
+    if (!destination || !days) {
+      return res.status(400).json({
+        error:
+          'Destination and days are required',
+      });
+    }
+
+    const parsedDays =
+      Number(days);
+
+    const parsedTravelers =
+      Number(travelers);
+
+    if (
+      !Number.isFinite(parsedDays) ||
+      parsedDays < 1 ||
+      parsedDays > 16
+    ) {
+      return res.status(400).json({
+        error:
+          'Days must be between 1 and 16',
+      });
+    }
+
+    if (
+      !Number.isFinite(parsedTravelers) ||
+      parsedTravelers < 1 ||
+      parsedTravelers > 20
+    ) {
+      return res.status(400).json({
+        error:
+          'Travelers must be between 1 and 20',
+      });
+    }
+
+    const result =
+      await runTravelAgent({
+        destination:
+          String(destination).trim(),
+
+        days:
+          parsedDays,
+
+        budget:
+          String(budget),
+
+        travelers:
+          parsedTravelers,
+      });
+
+    return res.status(200).json(
+      result,
+    );
+  } catch (error) {
+    console.error(
+      'Travel agent error:',
+      error,
+    );
+
+    return res.status(500).json({
+      error:
+        'Failed to generate travel plan',
+    });
+  }
+};
 
 export const tripPlannerHandler = async (
   req: Request,
@@ -67,8 +512,8 @@ export const tripPlannerHandler = async (
     const {
       destination,
       days,
-      budget,
-      travelers,
+      budget = 'moderate',
+      travelers = 2,
     } = req.body;
 
     if (!destination || !days) {
@@ -77,139 +522,41 @@ export const tripPlannerHandler = async (
       });
     }
 
-    const numberOfDays = Math.min(
-      Math.max(Number(days), 1),
-      7,
-    );
+    const parsedDays = Number(days);
+    const parsedTravelers = Number(travelers);
 
-    const prompt = `
-You are GhumiGumi, a smart and exciting travel planner.
-
-Create a realistic ${numberOfDays}-day itinerary for:
-
-Destination: ${destination}
-Budget: ${budget || 'moderate'}
-Travelers: ${travelers || '2 people'}
-
-Return ONLY valid JSON.
-
-Use EXACTLY this structure:
-
-{
-  "title": "Catchy trip title",
-  "summary": "Short exciting summary",
-  "days": [
-    {
-      "day": 1,
-      "theme": "Interesting day theme",
-      "activities": [
-        {
-          "time": "Morning",
-          "title": "Place or activity",
-          "description": "Short useful description",
-          "why": "Why this is worth doing",
-          "cost": "₹100",
-          "tip": "Useful local tip"
-        },
-        {
-          "time": "Lunch",
-          "title": "Local food or restaurant area",
-          "description": "What to eat and what it is known for",
-          "why": "Why try it",
-          "cost": "₹200",
-          "tip": "Useful food tip"
-        },
-        {
-          "time": "Afternoon",
-          "title": "Place or activity",
-          "description": "Short useful description",
-          "why": "Why visit",
-          "cost": "₹150",
-          "tip": "Useful local tip"
-        },
-        {
-          "time": "Evening",
-          "title": "Place or activity",
-          "description": "Short useful description",
-          "why": "Why it is special",
-          "cost": "₹100",
-          "tip": "Useful evening tip"
-        }
-      ]
-    }
-  ],
-  "totalCost": "₹2500",
-  "proTips": [
-    "Local travel tip",
-    "Safety tip",
-    "Money-saving tip"
-  ]
-}
-
-RULES:
-
-- Exactly ${numberOfDays} days.
-- Exactly 4 activities per day.
-- Use real places in ${destination}.
-- Include famous attractions.
-- Include authentic local food.
-- Include at least one memorable experience.
-- Make the order feel like a REAL journey.
-- Nearby places should preferably be grouped together.
-- Consider realistic travel time.
-- Lunch must include a local food experience.
-- Include what the destination is famous for.
-- Include useful transport suggestions inside descriptions or tips.
-- Avoid repeating attractions.
-- Keep descriptions short.
-- Keep tips short.
-- Make the writing exciting but practical.
-- Do not use Markdown.
-- Do not use tables.
-- Return JSON only.
-`;
-
-    const itinerary = await callGroq(prompt);
-
-    const cleanedItinerary = itinerary
-      .replace(/```json/gi, '')
-      .replace(/```/g, '')
-      .trim();
-
-    let parsedItinerary;
-
-    try {
-      parsedItinerary = JSON.parse(cleanedItinerary);
-    } catch (parseError) {
-      console.error(
-        'AI returned invalid JSON:',
-        cleanedItinerary,
-      );
-
-      return res.status(500).json({
-        error: 'AI returned an invalid itinerary format',
+    if (!Number.isFinite(parsedDays) || parsedDays < 1 || parsedDays > 16) {
+      return res.status(400).json({
+        error: 'Days must be between 1 and 16',
       });
     }
 
-    return res.status(200).json({
-      itinerary: parsedItinerary,
+    if (
+      !Number.isFinite(parsedTravelers) ||
+      parsedTravelers < 1 ||
+      parsedTravelers > 20
+    ) {
+      return res.status(400).json({
+        error: 'Travelers must be between 1 and 20',
+      });
+    }
+
+    const result = await runTravelAgent({
+      destination: String(destination).trim(),
+      days: parsedDays,
+      budget: String(budget),
+      travelers: parsedTravelers,
     });
 
-  } catch (err: any) {
-    console.error('Trip planner error:', err);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Trip planner error:', error);
 
     return res.status(500).json({
-      error:
-        err?.message ||
-        'Failed to generate itinerary',
+      error: 'Failed to generate itinerary',
     });
   }
 };
-
-
-/* =========================================================
-   2. AI BLOG GENERATOR
-========================================================= */
 
 export const blogGeneratorHandler = async (
   req: Request,
@@ -229,333 +576,122 @@ export const blogGeneratorHandler = async (
     }
 
     const prompt = `
-You are the lead travel writer for GhumiGumi.
+You are a travel blogger.
 
-Write a polished travel article about:
+Write a complete travel blog post.
 
 Topic: ${topic}
 Destination: ${destination || topic}
-Style: ${style || 'warm, vivid, conversational and adventurous'}
+Style: ${style || 'engaging and descriptive'}
 
-IMPORTANT:
+Include:
 
-Do NOT write a generic AI essay.
+1. Three catchy title suggestions
+2. Introduction
+3. Detailed body
+4. Travel tips
+5. Conclusion
 
-The article should feel like a modern travel magazine article written
-by an excellent human travel writer.
-
-Make the reader feel like they are actually planning this trip.
-
-Start with a strong visual hook.
-
-Use natural language.
-
-Talk about:
-- atmosphere
-- places
-- food
-- experiences
-- local culture
-- practical travel details
-
-Avoid phrases such as:
-"Traveling to X is an amazing experience."
-"X is a beautiful destination."
-"Whether you are..."
-"Nestled in..."
-"Rich tapestry..."
-unless genuinely necessary.
-
-Do not pretend that you personally visited the destination.
-
-Do not invent conversations with local people.
-
-Do not invent fake facts.
-
-STRUCTURE THE ARTICLE LIKE THIS:
-
-# Main Catchy Title
-
-Write one strong title.
-
-Then write a short 2-3 paragraph opening that immediately creates
-a sense of place.
-
-## Quick Takeaway
-
-Give 3 useful highlights:
-
-- Best for
-- Don't miss
-- Must-try food
-
-## Why Go?
-
-Give exactly 3 reasons.
-
-Each reason should have:
-
-### Short Reason Heading
-
-2-3 engaging sentences.
-
-## Places Worth Your Time
-
-Choose 5 real places.
-
-For each:
-
-### Place Name
-
-Explain:
-- what makes it special
-- what to do there
-- approximately how much time to spend
-
-## The Food Trail
-
-Recommend 5 authentic foods or food experiences.
-
-For each:
-
-### Food Name
-
-Explain:
-- what it tastes like
-- why it is famous
-- where or when to try it
-
-## Experiences To Add
-
-Give 4 memorable things to do.
-
-Include different experiences such as:
-- sightseeing
-- local market
-- sunset/sunrise
-- culture
-- neighborhood exploration
-- adventure
-- nightlife where appropriate
-
-## Practical Travel Tips
-
-Give exactly 6 useful tips.
-
-Cover:
-- transport
-- timing
-- money
-- safety
-- weather/clothing
-- local etiquette
-
-## Perfect For
-
-Explain who would enjoy this destination.
-
-## Final Note
-
-Finish with a short memorable closing that sounds like advice
-from a well-traveled friend.
-
-FORMATTING:
-
-Use Markdown headings.
-
-Use bullet points where appropriate.
-
-Do NOT use tables.
-
-Do NOT add a references section.
-
-Do NOT say "Here is your blog".
-
-Do NOT mention AI.
-
-Target approximately 700-900 words.
-
-The result should feel:
-
-VISUAL
-HUMAN
-USEFUL
-EXCITING
-TRAVEL-READY
-
-Return ONLY the finished article.
+Write at least 400 words.
 `;
 
-    const content = await callGroq(prompt);
+    const response =
+      await callGroq(
+        [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        false,
+      );
 
     return res.status(200).json({
-      content,
+      content:
+        response.choices?.[0]?.message
+          ?.content || '',
     });
-
-  } catch (err: any) {
+  } catch (error) {
     console.error(
       'Blog generator error:',
-      err,
+      error,
     );
 
     return res.status(500).json({
       error:
-        err?.message ||
         'Failed to generate blog content',
     });
   }
 };
 
+export const destinationRecommenderHandler =
+  async (
+    req: Request,
+    res: Response,
+  ) => {
+    try {
+      const {
+        budget,
+        weather,
+        tripType,
+      } = req.body;
 
-/* =========================================================
-   3. AI DESTINATION RECOMMENDER
-========================================================= */
+      if (
+        !budget ||
+        !weather ||
+        !tripType
+      ) {
+        return res.status(400).json({
+          error:
+            'All fields are required',
+        });
+      }
 
-export const destinationRecommenderHandler = async (
-  req: Request,
-  res: Response,
-) => {
-  try {
-    const {
-      budget,
-      weather,
-      tripType,
-    } = req.body;
+      const prompt = `
+You are a travel expert.
 
-    if (!budget || !weather || !tripType) {
-      return res.status(400).json({
-        error: 'All fields are required',
-      });
-    }
-
-    const prompt = `
-You are GhumiGumi's destination recommendation expert.
-
-A traveler selected:
+Recommend 5 travel destinations for:
 
 Budget: ${budget}
-Weather: ${weather}
+Preferred Weather: ${weather}
 Trip Type: ${tripType}
 
-Recommend EXACTLY 5 real destinations that strongly match
-these preferences.
+For each destination provide:
+- Destination
+- Why it matches
+- Best time to visit
+- Attractions
+- Estimated budget
+- One travel tip
 
-Return ONLY valid JSON.
-
-Use EXACTLY this structure:
-
-{
-  "destinations": [
-    {
-      "rank": 1,
-      "destination": "Bali",
-      "country": "Indonesia",
-
-      "tagline": "A tropical escape where beaches, temples and adventure meet.",
-
-      "whyGo": [
-        "Beautiful beaches and relaxing island atmosphere",
-        "Excellent mix of culture, nature and adventure",
-        "Great choice for a memorable tropical getaway"
-      ],
-
-      "bestTime": "April to October",
-
-      "highlights": [
-        "Uluwatu Temple",
-        "Tegallalang Rice Terraces",
-        "Seminyak Beach"
-      ],
-
-      "foodToTry": [
-        "Nasi Goreng",
-        "Mie Goreng",
-        "Satay"
-      ],
-
-      "estimatedBudget": "$900 - $1,300",
-
-      "travelVibe": "Beach • Adventure • Culture",
-
-      "experience": "Catch sunset at Uluwatu and finish the evening with a local seafood dinner.",
-
-      "localTip": "Start sightseeing early to avoid crowds and afternoon heat."
-    }
-  ]
-}
-
-RULES:
-
-- Return exactly 5 destinations.
-- Use ONLY real destinations.
-- Each destination must genuinely match:
-  budget + weather + trip type.
-- Make the five destinations different from each other.
-- Do not simply list the world's most famous destinations.
-- Prioritize destinations that actually fit the traveler.
-- Do not invent attractions.
-- Do not invent local foods.
-- tagline must be short and exciting.
-- whyGo MUST contain exactly 3 points.
-- Each whyGo point must be short and meaningful.
-- highlights MUST contain exactly 3 real places or experiences.
-- foodToTry MUST contain exactly 3 authentic local foods.
-- estimatedBudget should be a realistic approximate total trip budget
-  for ONE PERSON.
-- Use USD for consistency.
-- travelVibe must contain exactly 3 short phrases separated by " • ".
-- experience must describe ONE memorable thing to do.
-- localTip must be practical and destination-specific.
-- Keep everything concise.
-- Avoid repetitive wording.
-- Do not use Markdown.
-- Do not use tables.
-- Do not use bullet symbols.
-- Do not wrap JSON in markdown code fences.
-- Return JSON only.
+Number them 1 to 5.
 `;
 
-    const rawRecommendations =
-      await callGroq(prompt);
+      const response =
+        await callGroq(
+          [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          false,
+        );
 
-    const cleanedRecommendations =
-      rawRecommendations
-        .replace(/```json/gi, '')
-        .replace(/```/g, '')
-        .trim();
-
-    let parsedRecommendations;
-
-    try {
-      parsedRecommendations =
-        JSON.parse(cleanedRecommendations);
-    } catch (parseError) {
+      return res.status(200).json({
+        recommendations:
+          response.choices?.[0]?.message
+            ?.content || '',
+      });
+    } catch (error) {
       console.error(
-        'Destination AI returned invalid JSON:',
-        cleanedRecommendations,
+        'Destination recommender error:',
+        error,
       );
 
       return res.status(500).json({
         error:
-          'AI returned an invalid destination format',
+          'Failed to generate recommendations',
       });
     }
-
-    return res.status(200).json({
-      recommendations:
-        parsedRecommendations.destinations || [],
-    });
-
-  } catch (err: any) {
-    console.error(
-      'Destination recommender error:',
-      err,
-    );
-
-    return res.status(500).json({
-      error:
-        err?.message ||
-        'Failed to generate recommendations',
-    });
-  }
-};
+  };
