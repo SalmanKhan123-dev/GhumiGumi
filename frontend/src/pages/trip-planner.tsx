@@ -24,9 +24,7 @@ function TripPlanner() {
 
   const handleGenerate = async () => {
     if (!destination.trim() || !days) {
-      setError(
-        'Please fill in destination and number of days.',
-      );
+      setError('Please fill in destination and number of days.');
       return;
     }
 
@@ -34,18 +32,15 @@ function TripPlanner() {
     setLoading(true);
     setItinerary('');
     setAgentSteps([]);
-    setSavedPlaces([]);
 
     try {
-      const res = await axiosInstance.post(
-        '/api/ai/travel-agent',
-        {
-          destination,
-          days: Number(days),
-          budget,
-          travelers: Number(travelers),
-        },
-      );
+      const res = await axiosInstance.post('/api/ai/travel-agent', {
+        destination,
+        days: Number(days),
+        budget,
+        travelers: Number(travelers),
+        savedPlaces,
+      });
 
       setItinerary(res.data.itinerary || '');
       setAgentSteps(res.data.agentSteps || []);
@@ -53,9 +48,7 @@ function TripPlanner() {
     } catch (error) {
       console.error(error);
 
-      setError(
-        'Failed to generate your travel plan. Please try again.',
-      );
+      setError('Failed to generate your travel plan. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -71,50 +64,34 @@ function TripPlanner() {
 
   return (
     <div className="min-h-screen cursor-default bg-light dark:bg-dark">
-
       {/* HEADER */}
 
       <div className="relative h-36 bg-[url('./assets/wanderlustbg.webp')] bg-cover bg-center">
         <div className="absolute inset-0 bg-black opacity-50"></div>
 
         <div className="absolute inset-0 flex items-center justify-between px-8 sm:px-16">
-
           <div className="flex items-center gap-3 text-white">
-
             <Link to="/">
-              <img
-                src={AppIcon}
-                className="h-10 w-10"
-                alt="GhumiGumi"
-              />
+              <img src={AppIcon} className="h-10 w-10" alt="GhumiGumi" />
             </Link>
 
-            <Link
-              to="/"
-              className="text-2xl font-semibold text-white no-underline"
-            >
+            <Link to="/" className="text-2xl font-semibold text-white no-underline">
               GhumiGumi
             </Link>
 
-            <span className="hidden text-gray-300 sm:block">
-              / AI Travel Agent
-            </span>
-
+            <span className="hidden text-gray-300 sm:block">/ AI Travel Agent</span>
           </div>
 
           <ThemeToggle />
-
         </div>
       </div>
 
       {/* MAIN */}
 
       <div className="mx-auto max-w-4xl px-4 py-10">
-
         {/* TITLE */}
 
         <div className="mb-2 text-center">
-
           <h1 className="text-2xl font-bold text-light-primary dark:text-dark-primary">
             🤖 AI Travel Agent
           </h1>
@@ -122,19 +99,15 @@ function TripPlanner() {
           <p className="mt-2 text-sm text-light-secondary dark:text-dark-secondary">
             Tell GhumiGumi about your trip and let the AI build a personalized travel plan
           </p>
-
         </div>
 
         {/* INPUT CARD */}
 
         <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm dark:bg-dark-card">
-
           <div className="grid gap-4 sm:grid-cols-2">
-
             {/* DESTINATION */}
 
             <div className="sm:col-span-2">
-
               <label className="mb-1 block text-sm font-medium text-light-secondary dark:text-dark-secondary">
                 Destination *
               </label>
@@ -142,19 +115,15 @@ function TripPlanner() {
               <input
                 type="text"
                 value={destination}
-                onChange={(e) =>
-                  setDestination(e.target.value)
-                }
+                onChange={(e) => setDestination(e.target.value)}
                 placeholder="e.g. Manali, Goa, Paris, Bali"
                 className="w-full rounded-lg bg-zinc-100 p-3 text-sm placeholder:text-sm dark:bg-dark-field dark:text-dark-textInField"
               />
-
             </div>
 
             {/* DAYS */}
 
             <div>
-
               <label className="mb-1 block text-sm font-medium text-light-secondary dark:text-dark-secondary">
                 Number of Days *
               </label>
@@ -162,104 +131,64 @@ function TripPlanner() {
               <input
                 type="number"
                 value={days}
-                onChange={(e) =>
-                  setDays(e.target.value)
-                }
+                onChange={(e) => setDays(e.target.value)}
                 placeholder="e.g. 5"
                 min="1"
                 max="30"
                 className="w-full rounded-lg bg-zinc-100 p-3 text-sm placeholder:text-sm dark:bg-dark-field dark:text-dark-textInField"
               />
-
             </div>
 
             {/* BUDGET */}
 
             <div>
-
               <label className="mb-1 block text-sm font-medium text-light-secondary dark:text-dark-secondary">
                 Travel Style
               </label>
 
               <select
                 value={budget}
-                onChange={(e) =>
-                  setBudget(e.target.value)
-                }
+                onChange={(e) => setBudget(e.target.value)}
                 className="w-full rounded-lg bg-zinc-100 p-3 text-sm dark:bg-dark-field dark:text-dark-textInField"
               >
+                <option value="budget">💰 Budget</option>
 
-                <option value="budget">
-                  💰 Budget
-                </option>
+                <option value="moderate">💳 Moderate</option>
 
-                <option value="moderate">
-                  💳 Moderate
-                </option>
-
-                <option value="luxury">
-                  💎 Luxury
-                </option>
-
+                <option value="luxury">💎 Luxury</option>
               </select>
-
             </div>
 
             {/* TRAVELERS */}
 
             <div className="sm:col-span-2">
-
               <label className="mb-1 block text-sm font-medium text-light-secondary dark:text-dark-secondary">
                 Number of Travelers
               </label>
 
               <select
                 value={travelers}
-                onChange={(e) =>
-                  setTravelers(e.target.value)
-                }
+                onChange={(e) => setTravelers(e.target.value)}
                 className="w-full rounded-lg bg-zinc-100 p-3 text-sm dark:bg-dark-field dark:text-dark-textInField"
               >
+                <option value="1">🧍 1 Traveler</option>
 
-                <option value="1">
-                  🧍 1 Traveler
-                </option>
+                <option value="2">👫 2 Travelers</option>
 
-                <option value="2">
-                  👫 2 Travelers
-                </option>
+                <option value="3">👥 3 Travelers</option>
 
-                <option value="3">
-                  👥 3 Travelers
-                </option>
+                <option value="4">👥 4 Travelers</option>
 
-                <option value="4">
-                  👥 4 Travelers
-                </option>
+                <option value="5">👥 5 Travelers</option>
 
-                <option value="5">
-                  👥 5 Travelers
-                </option>
+                <option value="6">👥 6 Travelers</option>
 
-                <option value="6">
-                  👥 6 Travelers
-                </option>
-
-                <option value="10">
-                  👥 10 Travelers
-                </option>
-
+                <option value="10">👥 10 Travelers</option>
               </select>
-
             </div>
-
           </div>
 
-          {error && (
-            <p className="mt-3 text-xs text-red-500">
-              {error}
-            </p>
-          )}
+          {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
 
           {/* BUTTON */}
 
@@ -268,20 +197,15 @@ function TripPlanner() {
             disabled={loading}
             className="mt-6 flex w-full items-center justify-center rounded-lg bg-neutral-800 p-3 text-base font-semibold text-white disabled:bg-neutral-600 dark:bg-light dark:text-dark dark:hover:bg-dark-secondary/80"
           >
-            {loading
-              ? '🤖 AI Agent is planning...'
-              : '✨ Plan My Trip'}
+            {loading ? '🤖 AI Agent is planning...' : '✨ Plan My Trip'}
           </button>
-
         </div>
 
         {/* AGENT ACTIVITY */}
 
         {agentSteps.length > 0 && (
           <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm dark:bg-dark-card">
-
             <div className="mb-4">
-
               <h2 className="font-bold text-light-primary dark:text-dark-primary">
                 🤖 Agent Activity
               </h2>
@@ -289,18 +213,14 @@ function TripPlanner() {
               <p className="mt-1 text-xs text-light-secondary dark:text-dark-secondary">
                 GhumiGumi AI is working through your request
               </p>
-
             </div>
 
             <div className="space-y-3">
-
               {agentSteps.map((step, index) => (
-
                 <div
                   key={`${step}-${index}`}
                   className="flex items-center gap-3 rounded-lg bg-zinc-100 px-4 py-3 dark:bg-dark-field"
                 >
-
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-neutral-800 text-xs text-white dark:bg-light dark:text-dark">
                     ✓
                   </div>
@@ -308,13 +228,9 @@ function TripPlanner() {
                   <p className="text-sm text-light-description dark:text-dark-description">
                     {step}
                   </p>
-
                 </div>
-
               ))}
-
             </div>
-
           </div>
         )}
 
@@ -322,30 +238,20 @@ function TripPlanner() {
 
         {loading && (
           <div className="mt-8 flex flex-col items-center gap-3 text-light-tertiary dark:text-dark-tertiary">
-
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-200 border-t-neutral-800 dark:border-gray-700 dark:border-t-white"></div>
 
-            <p className="text-sm">
-              Your AI travel agent is working...
-            </p>
+            <p className="text-sm">Your AI travel agent is working...</p>
 
-            <p className="text-xs">
-              Analyzing your trip requirements and budget
-            </p>
-
+            <p className="text-xs">Analyzing your trip requirements and budget</p>
           </div>
         )}
 
         {/* RESULT */}
 
         {itinerary && !loading && (
-
           <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm dark:bg-dark-card">
-
             <div className="mb-4 flex items-center justify-between">
-
               <div>
-
                 <h2 className="font-bold text-light-primary dark:text-dark-primary">
                   Your {days}-Day {destination} Trip
                 </h2>
@@ -353,7 +259,6 @@ function TripPlanner() {
                 <p className="mt-1 text-xs text-light-secondary dark:text-dark-secondary">
                   Generated by GhumiGumi AI Travel Agent
                 </p>
-
               </div>
 
               <button
@@ -362,7 +267,6 @@ function TripPlanner() {
               >
                 Copy
               </button>
-
             </div>
 
             {travelData && (
@@ -401,57 +305,40 @@ function TripPlanner() {
             )}
 
             <div className="space-y-1">
+              {itinerary.split('\n').map((line, index) => {
+                const clean = line.replace(/\*\*/g, '').replace(/\*/g, '').trim();
 
-              {itinerary
-                .split('\n')
-                .map((line, index) => {
+                if (!clean) {
+                  return <div key={index} className="h-2" />;
+                }
 
-                  const clean = line
-                    .replace(/\*\*/g, '')
-                    .replace(/\*/g, '')
-                    .trim();
-
-                  if (!clean) {
-                    return (
-                      <div
-                        key={index}
-                        className="h-2"
-                      />
-                    );
-                  }
-
-                  if (
-                    clean.match(
-                      /^(Day|Trip Overview|Estimated Budget|Food Recommendations|Travel Tips|Things to Avoid|Final Recommendation)/i,
-                    )
-                  ) {
-                    return (
-                      <div
-                        key={index}
-                        className="mt-5 rounded-lg bg-zinc-100 px-4 py-2 dark:bg-dark-field"
-                      >
-                        <p className="font-bold text-light-primary dark:text-dark-primary">
-                          {clean}
-                        </p>
-                      </div>
-                    );
-                  }
-
+                if (
+                  clean.match(
+                    /^(Day|Trip Overview|Estimated Budget|Food Recommendations|Travel Tips|Things to Avoid|Final Recommendation)/i
+                  )
+                ) {
                   return (
-                    <p
+                    <div
                       key={index}
-                      className="px-1 text-sm leading-relaxed text-light-description dark:text-dark-description"
+                      className="mt-5 rounded-lg bg-zinc-100 px-4 py-2 dark:bg-dark-field"
                     >
-                      {clean}
-                    </p>
+                      <p className="font-bold text-light-primary dark:text-dark-primary">{clean}</p>
+                    </div>
                   );
-                })}
+                }
 
+                return (
+                  <p
+                    key={index}
+                    className="px-1 text-sm leading-relaxed text-light-description dark:text-dark-description"
+                  >
+                    {clean}
+                  </p>
+                );
+              })}
             </div>
-
           </div>
         )}
-
       </div>
     </div>
   );

@@ -221,11 +221,13 @@ const runTravelAgent = async ({
   days,
   budget,
   travelers,
+  savedPlaces = [],
 }: {
   destination: string;
   days: number;
   budget: string;
   travelers: number;
+  savedPlaces?: any[];
 }) => {
   const agentSteps: string[] = [
     'Understanding your trip requirements',
@@ -279,6 +281,14 @@ for ${travelers} traveler(s).
 
 Budget style: ${budget}
 
+Saved attractions selected by the traveler:
+${savedPlaces.length > 0
+  ? savedPlaces
+      .map((place: any) => place.name || place.display_name || 'Saved attraction')
+      .join(', ')
+  : 'None'}
+
+Use the travel intelligence tool first.
 Use the travel intelligence tool first.
 `,
     },
@@ -357,6 +367,9 @@ IMPORTANT:
 - Consider weather when arranging outdoor activities.
 - Keep each day realistic.
 - Group nearby attractions when possible.
+- If saved attractions are provided, prioritize them in the day-by-day itinerary.
+- Do not remove saved attractions unless they clearly conflict with the trip duration or weather.
+- Mention saved attractions naturally in the itinerary and Real Attractions section.
 
 Format the response clearly with:
 
@@ -392,6 +405,13 @@ Destination: ${destination}
 Days: ${days}
 Travelers: ${travelers}
 Budget Style: ${budget}
+
+SAVED ATTRACTIONS SELECTED BY TRAVELER:
+${savedPlaces.length > 0
+  ? JSON.stringify(savedPlaces)
+  : 'None'}
+
+LIVE TRAVEL DATA:
 
 LIVE TRAVEL DATA:
 ${JSON.stringify(
@@ -431,12 +451,13 @@ export const travelAgentHandler = async (
   res: Response,
 ) => {
   try {
-    const {
-      destination,
-      days,
-      budget = 'moderate',
-      travelers = 2,
-    } = req.body;
+   const {
+  destination,
+  days,
+  budget = 'moderate',
+  travelers = 2,
+  savedPlaces = [],
+} = req.body;
 
     if (!destination || !days) {
       return res.status(400).json({
@@ -474,20 +495,22 @@ export const travelAgentHandler = async (
     }
 
     const result =
-      await runTravelAgent({
-        destination:
-          String(destination).trim(),
+  await runTravelAgent({
+    destination:
+      String(destination).trim(),
 
-        days:
-          parsedDays,
+    days:
+      parsedDays,
 
-        budget:
-          String(budget),
+    budget:
+      String(budget),
 
-        travelers:
-          parsedTravelers,
-      });
+    travelers:
+      parsedTravelers,
 
+    savedPlaces:
+      Array.isArray(savedPlaces) ? savedPlaces : [],
+  });
     return res.status(200).json(
       result,
     );
@@ -509,12 +532,13 @@ export const tripPlannerHandler = async (
   res: Response,
 ) => {
   try {
-    const {
-      destination,
-      days,
-      budget = 'moderate',
-      travelers = 2,
-    } = req.body;
+   const {
+  destination,
+  days,
+  budget = 'moderate',
+  travelers = 2,
+  savedPlaces = [],
+} = req.body;
 
     if (!destination || !days) {
       return res.status(400).json({
@@ -546,6 +570,7 @@ export const tripPlannerHandler = async (
       days: parsedDays,
       budget: String(budget),
       travelers: parsedTravelers,
+      savedPlaces: Array.isArray(savedPlaces) ? savedPlaces : [],
     });
 
     return res.status(200).json(result);

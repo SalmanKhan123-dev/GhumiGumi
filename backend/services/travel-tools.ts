@@ -3,9 +3,9 @@ const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
 
 const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-  'https://overpass-api.de/api/interpreter',
 ];
 
 type TravelLocation = {
@@ -189,7 +189,7 @@ const getCoordinates = (element: any) => {
 };
 
 const runOverpassQuery = async (endpoint: string, query: string) => {
-  return fetchJson(endpoint, 45000, {
+  return fetchJson(endpoint, 20000, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -262,8 +262,6 @@ out center tags;
       return result;
     } catch (error) {
       console.error(`Places API failed at ${endpoint}:`, error);
-
-      await new Promise((resolve) => setTimeout(resolve, 800));
     }
   }
 
