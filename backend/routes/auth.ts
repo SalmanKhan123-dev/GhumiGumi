@@ -1,7 +1,24 @@
-import { Router, Request, Response } from 'express';
-import { authMiddleware } from '../middlewares/auth-middleware.js';
+import {
+  Router,
+  Request,
+  Response,
+} from 'express';
+
+import {
+  authMiddleware,
+} from '../middlewares/auth-middleware.js';
+
 import passport from '../config/passport.js';
+
 import jwt from 'jsonwebtoken';
+
+import {
+  JWT_SECRET,
+} from '../config/utils.js';
+
+import {
+  HTTP_STATUS,
+} from '../utils/constants.js';
 
 import {
   signUpWithEmail,
@@ -12,13 +29,20 @@ import {
 
 const router = Router();
 
+
 // ================================
 // EMAIL / PASSWORD
 // ================================
 
-router.post('/email-password/signup', signUpWithEmail);
+router.post(
+  '/email-password/signup',
+  signUpWithEmail,
+);
 
-router.post('/email-password/signin', signInWithEmailOrUsername);
+router.post(
+  '/email-password/signin',
+  signInWithEmailOrUsername,
+);
 
 
 // ================================
@@ -29,7 +53,7 @@ router.get(
   '/google',
   passport.authenticate('google', {
     scope: ['profile', 'email'],
-  })
+  }),
 );
 
 router.get(
@@ -39,23 +63,56 @@ router.get(
     session: false,
   }),
   (req: Request, res: Response) => {
-    const token = jwt.sign(
-      { id: req.user._id },
-      process.env.JWT_SECRET!,
-      { expiresIn: '1h' }
-    );
+    try {
+      const user = req.user as any;
 
-    res.cookie('access_token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      maxAge: 60 * 60 * 1000,
-    });
+      if (!user?._id) {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/signup?error=auth`,
+        );
+      }
 
-    res.redirect(
-      `${process.env.FRONTEND_URL}/signup?google-callback=true`
-    );
-  }
+      const token = jwt.sign(
+        {
+          id: user._id.toString(),
+        },
+        JWT_SECRET as string,
+        {
+          expiresIn: '1h',
+        },
+      );
+
+      const isProduction =
+        process.env.NODE_ENV === 'production';
+
+      res.cookie(
+        'access_token',
+        token,
+        {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: isProduction
+            ? 'none'
+            : 'lax',
+          maxAge:
+            60 * 60 * 1000,
+        },
+      );
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/signup?google-callback=true`,
+      );
+    } catch (error) {
+      console.error(
+        'Google authentication callback error:',
+        error,
+      );
+
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/signup?error=auth`,
+      );
+    }
+  },
 );
 
 
@@ -63,17 +120,20 @@ router.get(
 // CHECK LOGIN
 // ================================
 
-router.get('/check', authMiddleware, (req, res) => {
-  const token = req.cookies.access_token;
-
-  res.json({
-    token,
-    user: {
-      _id: req.user._id,
-      role: req.user.role,
-    },
-  });
-});
+router.get(
+  '/check',
+  authMiddleware,
+  (req: Request, res: Response) => {
+    return res.status(
+      HTTP_STATUS.OK,
+    ).json({
+      user: {
+        _id: req.user?._id,
+        role: req.user?.role,
+      },
+    });
+  },
+);
 
 
 // ================================
@@ -83,7 +143,7 @@ router.get('/check', authMiddleware, (req, res) => {
 router.post(
   '/signout',
   authMiddleware,
-  signOutUser
+  signOutUser,
 );
 
 
@@ -94,7 +154,7 @@ router.post(
 router.get(
   '/check/:_id',
   authMiddleware,
-  isLoggedIn
+  isLoggedIn,
 );
 
 
